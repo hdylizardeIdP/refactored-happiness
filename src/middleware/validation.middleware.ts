@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError } from './error.middleware';
 import { isValidPhoneNumber } from '../utils/validators';
 import { IncomingSmsPayload } from '../types/sms';
+import { logger } from '../utils/logger';
 
 /**
  * Validate Twilio webhook payload
@@ -44,7 +45,7 @@ export function requestLogger(req: Request, _res: Response, next: NextFunction):
       ? '(hidden in production)'
       : JSON.stringify(body);
 
-  console.log(`[${timestamp}] ${method} ${url}`, {
+  logger.http(`${method} ${url}`, {
     body: safeBody,
   });
 
