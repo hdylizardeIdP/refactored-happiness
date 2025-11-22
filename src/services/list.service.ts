@@ -44,10 +44,22 @@ export async function getOrCreateGroceryList(userId: string): Promise<List> {
 
 /**
  * Get list by name or type
+ * 
+ * Access Control Model:
+ * - Users can access lists they own (ownerId = userId)
+ * - Users can access lists shared with them (via ListShare relationship)
+ * - By default, only owned lists are queried for performance
+ * - Use includeShares=true to eagerly load share relationships and check shared access
+ * 
+ * @param userId - The user requesting the list
+ * @param listNameOrType - Optional name or type to search for
+ * @param includeShares - Whether to eagerly load ListShare data (default: false)
+ * @returns The list if found and accessible, null otherwise
  */
 export async function getList(
   userId: string,
-  listNameOrType?: string
+  listNameOrType?: string,
+  includeShares: boolean = false
 ): Promise<List | null> {
   try {
     // Default to grocery list if no name specified
@@ -56,6 +68,8 @@ export async function getList(
     }
 
     // Search by name or type
+    // Note: Currently only searches owned lists. For shared list access,
+    // use getUserAccessibleList() which checks both owned and shared lists.
     const list = await prisma.list.findFirst({
       where: {
         OR: [
@@ -72,6 +86,12 @@ export async function getList(
           },
         ],
       },
+      // Optionally include shares to avoid N+1 queries when checking access
+      ...(includeShares && {
+        include: {
+          shares: true,
+        },
+      }),
     });
 
     return list;
@@ -273,6 +293,115 @@ export async function createList(
     });
     return null;
   }
+}
+
+/**
+ * Get a list that the user has access to (either as owner or via sharing)
+ * 
+ * This function checks both:
+ * 1. Lists owned by the user
+ * 2. Lists shared with the user via ListShare
+ * 
+ * Eagerly loads share relationships to avoid N+1 queries when checking permissions.
+ * 
+ * @param userId - The user requesting access
+ * @param listNameOrType - Optional name or type to search for
+ * @returns The list if found and accessible, null otherwise
+ */
+export async function getUserAccessibleList(
+  userId: string,
+  listNameOrType?: string
+): Promise<List | null> {
+  try {
+    // Default to grocery list if no name specified
+    if (!listNameOrType) {
+      return getOrCreateGroceryList(userId);
+    }
+
+    // Search for lists the user owns OR lists shared with them
+    const list = await prisma.list.findFirst({
+      where: {
+        OR: [
+          // Lists owned by user
+          {
+            ownerId: userId,
+            OR: [
+              {
+                name: {
+                  contains: listNameOrType,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                type: listNameOrType.toLowerCase(),
+              },
+            ],
+          },
+          // Lists shared with user
+          {
+            shares: {
+              some: {
+                sharedWithUserId: userId,
+              },
+            },
+            OR: [
+              {
+                name: {
+                  contains: listNameOrType,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                type: listNameOrType.toLowerCase(),
+              },
+            ],
+          },
+        ],
+      },
+      // Eagerly load shares to check permissions without additional queries
+      include: {
+        shares: true,
+      },
+    });
+
+    return list;
+  } catch (error) {
+    logger.error('Error getting user accessible list', {
+      error,
+      userId,
+      listNameOrType,
+    });
+    return null;
+  }
+}
+
+/**
+ * Check if a user has access to a list (either as owner or via sharing)
+ * 
+ * @param list - The list to check (should include shares)
+ * @param userId - The user to check access for
+ * @param requireEdit - Whether to require edit permission (default: false)
+ * @returns True if user has access, false otherwise
+ */
+export function hasListAccess(
+  list: List & { shares?: Array<{ sharedWithUserId: string; canEdit: boolean }> },
+  userId: string,
+  requireEdit: boolean = false
+): boolean {
+  // Check if user is the owner
+  if (list.ownerId === userId) {
+    return true;
+  }
+
+  // Check if list is shared with user
+  if (list.shares) {
+    const share = list.shares.find((s) => s.sharedWithUserId === userId);
+    if (share) {
+      return !requireEdit || share.canEdit;
+    }
+  }
+
+  return false;
 }
 
 /**
