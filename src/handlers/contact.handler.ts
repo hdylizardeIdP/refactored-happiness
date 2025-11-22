@@ -1,6 +1,6 @@
 import { User } from '@prisma/client';
 import { IntentResult } from '../types/intents';
-import { searchContacts, getContactByName } from '../services/contact.service';
+import { searchContacts } from '../services/contact.service';
 import { formatContactForSms } from '../utils/formatters';
 import { logger } from '../utils/logger';
 
