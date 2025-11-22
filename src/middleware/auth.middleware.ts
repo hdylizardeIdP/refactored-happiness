@@ -35,3 +35,34 @@ export function twilioAuthMiddleware(req: Request, _res: Response, next: NextFun
   logger.debug('Twilio signature validated successfully');
   next();
 }
+
+/**
+ * Middleware to validate admin API key for system endpoints
+ * This ensures only authorized administrators can access sensitive system information
+ */
+export function adminAuthMiddleware(req: Request, _res: Response, next: NextFunction): void {
+  // Get the API key from Authorization header
+  const authHeader = req.headers['authorization'];
+  const apiKey = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+
+  // Check if ADMIN_API_KEY is configured
+  const adminApiKey = process.env.ADMIN_API_KEY;
+  if (!adminApiKey) {
+    logger.error('ADMIN_API_KEY environment variable is not configured');
+    throw new AppError(500, 'Server configuration error');
+  }
+
+  if (!apiKey) {
+    logger.warn('Missing API key in admin request');
+    throw new AppError(401, 'Unauthorized: Missing API key');
+  }
+
+  // Validate the API key
+  if (apiKey !== adminApiKey) {
+    logger.warn('Invalid admin API key attempt');
+    throw new AppError(401, 'Unauthorized: Invalid API key');
+  }
+
+  logger.debug('Admin API key validated successfully');
+  next();
+}

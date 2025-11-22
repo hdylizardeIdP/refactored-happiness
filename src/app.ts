@@ -1,7 +1,7 @@
 import express, { Express } from 'express';
 import { healthCheck, statusCheck } from './controllers/health.controller';
 import { handleIncomingSms, handleSmsStatus } from './controllers/sms.controller';
-import { twilioAuthMiddleware } from './middleware/auth.middleware';
+import { twilioAuthMiddleware, adminAuthMiddleware } from './middleware/auth.middleware';
 import {
   validateTwilioWebhook,
   requestLogger,
@@ -30,7 +30,9 @@ export function createApp(): Express {
 
   // Health check routes (no auth required)
   app.get('/health', asyncHandler(healthCheck));
-  app.get('/status', asyncHandler(statusCheck));
+  
+  // Status check route (requires admin auth)
+  app.get('/status', adminAuthMiddleware, asyncHandler(statusCheck));
 
   // Twilio webhook routes (with auth and validation)
   app.post(
