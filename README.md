@@ -72,6 +72,7 @@ PRIMARY_USER_PHONE=+1234567890
 PRIMARY_USER_NAME=Your Name
 
 WEBHOOK_SECRET=random_secret_string
+ADMIN_API_KEY=your_secure_admin_api_key
 LOG_LEVEL=info
 ```
 
@@ -175,8 +176,10 @@ sms-assistant/
 ## API Endpoints
 
 ### Health & Status
-- `GET /health` - Basic health check
-- `GET /status` - Detailed system status
+- `GET /health` - Basic health check (no authentication required)
+- `GET /status` - Detailed system status (requires admin API key)
+  - **Authentication**: Requires `Authorization` header with admin API key
+  - **Example**: `Authorization: Bearer your_admin_api_key`
 
 ### Twilio Webhooks
 - `POST /webhooks/sms/incoming` - Incoming SMS webhook
@@ -186,6 +189,7 @@ sms-assistant/
 
 - Phone number whitelist (only authorized users can interact)
 - Twilio webhook signature validation
+- Admin API key authentication for system endpoints
 - Permission-based access control
 - Input sanitization and validation
 - Environment variable protection
