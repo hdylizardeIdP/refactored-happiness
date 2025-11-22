@@ -45,6 +45,11 @@ async function main() {
   console.log('Created family member users');
 
   // Create contacts for primary user
+  // Delete existing contacts to allow re-seeding
+  await prisma.contact.deleteMany({
+    where: { ownerId: primaryUser.id },
+  });
+
   const contacts = [
     { name: 'Natalie', phoneNumber: '+15555551234', email: 'natalie@example.com', relationship: 'family' },
     { name: 'Mom', phoneNumber: '+15555555678', email: 'mom@example.com', relationship: 'family' },
@@ -54,15 +59,8 @@ async function main() {
   ];
 
   for (const contact of contacts) {
-    await prisma.contact.upsert({
-      where: {
-        ownerId_name: {
-          ownerId: primaryUser.id,
-          name: contact.name,
-        },
-      },
-      update: {},
-      create: {
+    await prisma.contact.create({
+      data: {
         ownerId: primaryUser.id,
         ...contact,
       },

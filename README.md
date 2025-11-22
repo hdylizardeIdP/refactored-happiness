@@ -31,7 +31,7 @@ A personal digital assistant that communicates via SMS using natural language pr
 ## Prerequisites
 
 - Node.js 20 or higher
-- PostgreSQL 15 or higher
+- PostgreSQL 15 or higher (or Docker with Docker Compose)
 - Twilio account with phone number
 - Anthropic API key
 - Google Maps API key
@@ -77,6 +77,22 @@ LOG_LEVEL=info
 ```
 
 ### 3. Set Up Database
+
+**Option A: Using Docker (recommended for development)**
+
+Start PostgreSQL in Docker:
+
+```bash
+docker-compose up -d
+```
+
+The database will be available at `postgresql://sms_user:sms_password@localhost:5432/sms_assistant`
+
+**Option B: Using existing PostgreSQL**
+
+Ensure PostgreSQL is running and update `DATABASE_URL` in `.env` accordingly.
+
+**Then run migrations:**
 
 ```bash
 # Run Prisma migrations
