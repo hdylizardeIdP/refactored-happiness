@@ -15,29 +15,28 @@ export async function updateLocation(
   label?: string
 ): Promise<Location | null> {
   try {
-    // Mark all previous locations as not current
-    await prisma.location.updateMany({
-      where: {
-        userId,
-        isCurrent: true,
-      },
-      data: {
-        isCurrent: false,
-      },
-    });
-
-    // Create new current location
-    const location = await prisma.location.create({
-      data: {
-        userId,
-        latitude: new Decimal(latitude),
-        longitude: new Decimal(longitude),
-        address,
-        label,
-        isCurrent: true,
-      },
-    });
-
+    // Atomically mark all previous locations as not current and create new current location
+    const [, location] = await prisma.$transaction([
+      prisma.location.updateMany({
+        where: {
+          userId,
+          isCurrent: true,
+        },
+        data: {
+          isCurrent: false,
+        },
+      }),
+      prisma.location.create({
+        data: {
+          userId,
+          latitude: new Decimal(latitude),
+          longitude: new Decimal(longitude),
+          address,
+          label,
+          isCurrent: true,
+        },
+      }),
+    ]);
     logger.info('Location updated', {
       userId,
       locationId: location.id,
