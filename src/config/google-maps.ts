@@ -39,13 +39,27 @@ export async function geocodeAddress(address: string): Promise<{
       },
     });
 
-    if (response.data.status === 'OK' && response.data.results.length > 0) {
+    if (response.data.status === 'OK' && Array.isArray(response.data.results) && response.data.results.length > 0) {
       const result = response.data.results[0];
-      return {
-        lat: result.geometry.location.lat,
-        lng: result.geometry.location.lng,
-        formattedAddress: result.formatted_address,
-      };
+      if (
+        result &&
+        result.geometry &&
+        result.geometry.location &&
+        typeof result.geometry.location.lat === 'number' &&
+        typeof result.geometry.location.lng === 'number' &&
+        typeof result.formatted_address === 'string'
+      ) {
+        return {
+          lat: result.geometry.location.lat,
+          lng: result.geometry.location.lng,
+          formattedAddress: result.formatted_address,
+        };
+      } else {
+        logger.warn(`Geocoding response missing expected fields for address: ${address}`, {
+          result,
+        });
+        return null;
+      }
     }
 
     logger.warn(`Geocoding failed for address: ${address}`, {
