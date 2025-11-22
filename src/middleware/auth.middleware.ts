@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { validateTwilioSignature } from '../config/twilio';
 import { AppError } from './error.middleware';
 import { logger } from '../utils/logger';
+import crypto from 'crypto';
 
 /**
  * Middleware to validate Twilio request signature
@@ -41,9 +42,20 @@ export function twilioAuthMiddleware(req: Request, _res: Response, next: NextFun
  * This ensures only authorized administrators can access sensitive system information
  */
 export function adminAuthMiddleware(req: Request, _res: Response, next: NextFunction): void {
-  // Get the API key from Authorization header
+  // Get the API key from Authorization header (Bearer token format required)
   const authHeader = req.headers['authorization'];
-  const apiKey = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+  
+  if (!authHeader) {
+    logger.warn('Missing Authorization header in admin request');
+    throw new AppError(401, 'Unauthorized: Missing Authorization header');
+  }
+
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.warn('Invalid Authorization header format');
+    throw new AppError(401, 'Unauthorized: Invalid Authorization header format. Expected: Bearer <api_key>');
+  }
+
+  const apiKey = authHeader.substring(7);
 
   // Check if ADMIN_API_KEY is configured
   const adminApiKey = process.env.ADMIN_API_KEY;
@@ -53,13 +65,28 @@ export function adminAuthMiddleware(req: Request, _res: Response, next: NextFunc
   }
 
   if (!apiKey) {
-    logger.warn('Missing API key in admin request');
+    logger.warn('Empty API key in admin request');
     throw new AppError(401, 'Unauthorized: Missing API key');
   }
 
-  // Validate the API key
-  if (apiKey !== adminApiKey) {
-    logger.warn('Invalid admin API key attempt');
+  // Use constant-time comparison to prevent timing attacks
+  const apiKeyBuffer = Buffer.from(apiKey);
+  const adminApiKeyBuffer = Buffer.from(adminApiKey);
+
+  // Ensure both buffers are the same length to avoid timing leaks
+  if (apiKeyBuffer.length !== adminApiKeyBuffer.length) {
+    logger.warn('Invalid admin API key attempt (length mismatch)');
+    throw new AppError(401, 'Unauthorized: Invalid API key');
+  }
+
+  // Perform constant-time comparison
+  try {
+    if (!crypto.timingSafeEqual(apiKeyBuffer, adminApiKeyBuffer)) {
+      logger.warn('Invalid admin API key attempt');
+      throw new AppError(401, 'Unauthorized: Invalid API key');
+    }
+  } catch (error) {
+    logger.warn('Invalid admin API key attempt', { error });
     throw new AppError(401, 'Unauthorized: Invalid API key');
   }
 

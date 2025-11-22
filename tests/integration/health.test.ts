@@ -3,6 +3,21 @@ import { createApp } from '../../src/app';
 
 describe('Health Endpoints', () => {
   const app = createApp();
+  let originalAdminApiKey: string | undefined;
+
+  beforeEach(() => {
+    // Save original value
+    originalAdminApiKey = process.env.ADMIN_API_KEY;
+  });
+
+  afterEach(() => {
+    // Restore original value
+    if (originalAdminApiKey !== undefined) {
+      process.env.ADMIN_API_KEY = originalAdminApiKey;
+    } else {
+      delete process.env.ADMIN_API_KEY;
+    }
+  });
 
   describe('GET /health', () => {
     it('should return 200 and success message', async () => {
@@ -17,6 +32,7 @@ describe('Health Endpoints', () => {
 
   describe('GET /status', () => {
     it('should return 401 without admin API key', async () => {
+      delete process.env.ADMIN_API_KEY;
       const response = await request(app).get('/status');
 
       expect(response.status).toBe(401);
@@ -25,6 +41,7 @@ describe('Health Endpoints', () => {
     });
 
     it('should return 401 with invalid admin API key', async () => {
+      process.env.ADMIN_API_KEY = 'test-admin-key';
       const response = await request(app)
         .get('/status')
         .set('Authorization', 'Bearer invalid-key');
@@ -34,7 +51,6 @@ describe('Health Endpoints', () => {
     });
 
     it('should return system status with valid admin API key', async () => {
-      // Set the ADMIN_API_KEY for testing
       process.env.ADMIN_API_KEY = 'test-admin-key';
 
       const response = await request(app)
@@ -47,9 +63,6 @@ describe('Health Endpoints', () => {
       expect(response.body.data).toHaveProperty('version');
       expect(response.body.data).toHaveProperty('environment');
       expect(response.body.data).toHaveProperty('checks');
-
-      // Clean up
-      delete process.env.ADMIN_API_KEY;
     });
   });
 
