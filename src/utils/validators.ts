@@ -40,7 +40,7 @@ export function isValidLongitude(lng: number): boolean {
 export function sanitizeInput(input: string): string {
   // Remove any potentially harmful characters
   // Allow alphanumeric, spaces, and common punctuation
-  return input.replace(/[^\w\s.,!?@'"-]/g, '').trim();
+  return input.replace(/[^\w\s.,!?@'"\-]/g, '').trim();
 }
 
 /**
