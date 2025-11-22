@@ -16,8 +16,30 @@ describe('Health Endpoints', () => {
   });
 
   describe('GET /status', () => {
-    it('should return system status', async () => {
+    it('should return 401 without admin API key', async () => {
       const response = await request(app).get('/status');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('success', false);
+      expect(response.body.error).toHaveProperty('message');
+    });
+
+    it('should return 401 with invalid admin API key', async () => {
+      const response = await request(app)
+        .get('/status')
+        .set('Authorization', 'Bearer invalid-key');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should return system status with valid admin API key', async () => {
+      // Set the ADMIN_API_KEY for testing
+      process.env.ADMIN_API_KEY = 'test-admin-key';
+
+      const response = await request(app)
+        .get('/status')
+        .set('Authorization', 'Bearer test-admin-key');
 
       expect(response.status).toBeGreaterThanOrEqual(200);
       expect(response.body).toHaveProperty('data');
@@ -25,6 +47,9 @@ describe('Health Endpoints', () => {
       expect(response.body.data).toHaveProperty('version');
       expect(response.body.data).toHaveProperty('environment');
       expect(response.body.data).toHaveProperty('checks');
+
+      // Clean up
+      delete process.env.ADMIN_API_KEY;
     });
   });
 
