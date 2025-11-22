@@ -304,6 +304,10 @@ export async function createList(
  * 
  * Eagerly loads share relationships to avoid N+1 queries when checking permissions.
  * 
+ * Performance Note: The query uses top-level OR to allow Prisma/PostgreSQL to utilize
+ * separate indexes (ownerId for owned lists, sharedWithUserId for shared lists).
+ * For very high-scale scenarios, consider splitting into two separate queries.
+ * 
  * @param userId - The user requesting access
  * @param listNameOrType - Optional name or type to search for
  * @returns The list if found and accessible, null otherwise
@@ -319,10 +323,11 @@ export async function getUserAccessibleList(
     }
 
     // Search for lists the user owns OR lists shared with them
+    // Uses indexes: ownerId on lists table, sharedWithUserId on list_shares table
     const list = await prisma.list.findFirst({
       where: {
         OR: [
-          // Lists owned by user
+          // Lists owned by user (uses ownerId index)
           {
             ownerId: userId,
             OR: [
@@ -337,7 +342,7 @@ export async function getUserAccessibleList(
               },
             ],
           },
-          // Lists shared with user
+          // Lists shared with user (uses sharedWithUserId index)
           {
             shares: {
               some: {
