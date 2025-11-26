@@ -58,7 +58,8 @@ Edit `.env` and add your API keys and configuration:
 NODE_ENV=development
 PORT=3000
 
-DATABASE_URL=postgresql://user:password@localhost:5432/sms_assistant
+# Use port 5433 if 5432 is already in use
+DATABASE_URL=postgresql://user:password@localhost:5433/sms_assistant
 
 TWILIO_ACCOUNT_SID=your_twilio_account_sid
 TWILIO_AUTH_TOKEN=your_twilio_auth_token
@@ -75,7 +76,46 @@ WEBHOOK_SECRET=random_secret_string
 LOG_LEVEL=info
 ```
 
-### 3. Set Up Database
+### 3. Set Up PostgreSQL Database
+
+If port 5432 is already in use, you have two options:
+
+**Option A: Use existing PostgreSQL on port 5432**
+```bash
+createdb sms_assistant
+# Update DATABASE_URL in .env to use port 5432
+```
+
+**Option B: Run PostgreSQL on a different port (5433)**
+```bash
+# Initialize a new PostgreSQL cluster on port 5433
+initdb -D ~/postgres-5433
+
+# Edit postgresql.conf to set port = 5433
+echo "port = 5433" >> ~/postgres-5433/postgresql.conf
+
+# Start PostgreSQL
+pg_ctl -D ~/postgres-5433 -l ~/postgres-5433/logfile start
+
+# Create database
+createdb -p 5433 sms_assistant
+
+# Keep DATABASE_URL with port 5433 in .env
+```
+
+**Option C: Use Docker**
+```bash
+docker run --name sms-assistant-db \
+  -e POSTGRES_PASSWORD=password \
+  -e POSTGRES_USER=user \
+  -e POSTGRES_DB=sms_assistant \
+  -p 5433:5432 \
+  -d postgres:15
+
+# Use DATABASE_URL=postgresql://user:password@localhost:5433/sms_assistant
+```
+
+### 4. Run Migrations and Seed Data
 
 ```bash
 # Run Prisma migrations
@@ -88,7 +128,7 @@ npm run prisma:generate
 npm run prisma:seed
 ```
 
-### 4. Start Development Server
+### 5. Start Development Server
 
 ```bash
 npm run dev
@@ -96,7 +136,7 @@ npm run dev
 
 The server will start on `http://localhost:3000`.
 
-### 5. Expose Local Server with ngrok
+### 6. Expose Local Server with ngrok
 
 For Twilio to send webhooks to your local server:
 
@@ -246,9 +286,14 @@ Ensure these are set in your production environment:
 ## Troubleshooting
 
 ### Database connection issues
-- Verify PostgreSQL is running
-- Check `DATABASE_URL` format
-- Ensure database exists
+- **Port already in use**: If you see "port 5432 is already in use", either:
+  - Use your existing PostgreSQL on port 5432 and update DATABASE_URL
+  - Set up a new PostgreSQL instance on port 5433 (see setup instructions above)
+  - Use Docker with port mapping (recommended for development)
+- Verify PostgreSQL is running: `pg_isready -p 5433` (adjust port as needed)
+- Check `DATABASE_URL` format: `postgresql://user:password@host:port/database`
+- Ensure database exists: `psql -p 5433 -l` (adjust port as needed)
+- Test connection: `psql -p 5433 -d sms_assistant` (adjust port as needed)
 
 ### Twilio webhook not working
 - Verify ngrok is running (development)
