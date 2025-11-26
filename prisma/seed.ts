@@ -54,19 +54,21 @@ async function main() {
   ];
 
   for (const contact of contacts) {
-    await prisma.contact.upsert({
+    const existing = await prisma.contact.findFirst({
       where: {
-        ownerId_name: {
-          ownerId: primaryUser.id,
-          name: contact.name,
-        },
-      },
-      update: {},
-      create: {
         ownerId: primaryUser.id,
-        ...contact,
+        name: contact.name,
       },
     });
+
+    if (!existing) {
+      await prisma.contact.create({
+        data: {
+          ownerId: primaryUser.id,
+          ...contact,
+        },
+      });
+    }
   }
 
   console.log('Created contacts');
@@ -163,6 +165,11 @@ async function main() {
     { content: 'Bread', quantity: '1 loaf' },
     { content: 'Bananas', quantity: '1 bunch' },
   ];
+
+  // Clear existing items first to avoid duplicates
+  await prisma.listItem.deleteMany({
+    where: { listId: groceryList.id },
+  });
 
   for (const item of groceryItems) {
     await prisma.listItem.create({
